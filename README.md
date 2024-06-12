@@ -8,6 +8,21 @@ React Native Module For PT-220 Thermal Printer
 npm i react-native-printer-pt220
 ```
 
+## iOS Configuration
+
+Open your project's `Info.plist` and add the following lines inside the outermost `<dict>` tag:
+
+```xml
+<key>NSBluetoothPeripheralUsageDescription</key>
+<string>Need Bluetooth</string>
+<key>NSBluetoothAlwaysUsageDescription</key>
+<string>Need Bluetooth</string>
+```
+
+## Android Configuration
+
+None
+
 ## Usage
 
 ```tsx
