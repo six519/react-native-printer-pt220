@@ -6,7 +6,7 @@ RCT_EXTERN_METHOD(ptConnect:(NSString *)address
                  withResolver:(RCTPromiseResolveBlock)resolve
                  withRejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(ptSetPrinter:(NSString *)command
+RCT_EXTERN_METHOD(ptSetPrinter:(NSString *)cmd
                  withResolver:(RCTPromiseResolveBlock)resolve
                  withRejecter:(RCTPromiseRejectBlock)reject)
 
