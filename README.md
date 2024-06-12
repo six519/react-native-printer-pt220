@@ -2,6 +2,12 @@
 
 React Native Module For PT-220 Thermal Printer
 
+## Installation
+
+```sh
+npm i react-native-printer-pt220
+```
+
 ## Usage
 
 ```tsx
