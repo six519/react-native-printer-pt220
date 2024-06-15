@@ -10,30 +10,51 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.WritableNativeArray
 import java.io.IOException
 import java.util.UUID
 
 var btAdapter: BluetoothAdapter? = null
 var btDevice: BluetoothDevice? = null
 var btSocket: BluetoothSocket? = null
+var btDevices = hashMapOf<String, String>()
 
 class PrinterPt220Module(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
+
+  @SuppressLint("MissingPermission")
+  override fun initialize() {
+    super.initialize()
+    val bluetoothManager = reactApplicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    btAdapter = bluetoothManager.adapter
+    if (btAdapter != null && btAdapter!!.isEnabled) {
+      val pairedDevices: Set<BluetoothDevice>? = btAdapter?.bondedDevices
+      pairedDevices?.forEach { device ->
+        btDevices[device.name] = device.address
+      }
+    }
+  }
 
   override fun getName(): String {
     return NAME
   }
 
   @ReactMethod
-  fun ptConnect(address: String, promise: Promise) {
-    val bluetoothManager = reactApplicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    btAdapter = bluetoothManager.adapter
-    btDevice = btAdapter?.getRemoteDevice(address)
+  fun ptGetDevices(promise: Promise) {
+    var devArray = WritableNativeArray()
+    for ((key, value) in btDevices) {
+      devArray.pushString(key)
+    }
+    promise.resolve(devArray)
+  }
 
+  @ReactMethod
+  fun ptConnect(address: String, promise: Promise) {
     if (btAdapter == null) {
-      promise.reject("Connect event", "Bluetooth not available.")
+      promise.reject("Connect event", "Bluetooth adapter is null.")
     } else {
       if (btAdapter!!.isEnabled) {
+        btDevice = btAdapter?.getRemoteDevice(address)
         val printerThread = PrinterThread(btDevice!!)
         printerThread.start()
         promise.resolve(address)
