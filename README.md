@@ -37,7 +37,7 @@ export default function App() {
 
   React.useEffect(() => {
     console.log('Connecting...');
-    ptConnect('60:6E:41:62:92:F8').then(setResult);
+    ptConnect('PT-220').then(setResult);
   }, []);
 
   return (

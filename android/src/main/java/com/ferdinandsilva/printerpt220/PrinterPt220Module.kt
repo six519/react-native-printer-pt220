@@ -49,32 +49,39 @@ class PrinterPt220Module(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun ptConnect(address: String, promise: Promise) {
+  fun ptConnect(name: String, promise: Promise) {
     if (btAdapter == null) {
       promise.reject("Connect event", "Bluetooth adapter is null.")
-    } else {
-      if (btAdapter!!.isEnabled) {
-        btDevice = btAdapter?.getRemoteDevice(address)
-        val printerThread = PrinterThread(btDevice!!)
-        printerThread.start()
-        promise.resolve(address)
-      } else {
-        promise.reject("Connect event", "Bluetooth is disabled.")
-      }
+      return
     }
+
+    if (!btAdapter!!.isEnabled) {
+      promise.reject("Connect event", "Bluetooth is disabled.")
+      return
+    }
+
+    if (!btDevices.containsKey(name)) {
+      promise.reject("Connect event", "Invalid name.")
+      return
+    }
+
+    btDevice = btAdapter?.getRemoteDevice(btDevices[name])
+    val printerThread = PrinterThread(btDevice!!)
+    printerThread.start()
+    promise.resolve(name)
   }
 
   private fun printerExecute(command: ByteArray?, tag: String, promise: Promise) {
-    if (btSocket != null) {
-      try {
-        val out = btSocket?.outputStream
-        out?.write(command)
-        promise.resolve(true)
-      } catch (e: IOException) {
-        promise.reject(tag, "IOException occurred.")
-      }
-    } else {
+    if (btSocket == null) {
       promise.reject(tag, "Not connected to the device.")
+      return
+    }
+    try {
+      val out = btSocket?.outputStream
+      out?.write(command)
+      promise.resolve(true)
+    } catch (e: IOException) {
+      promise.reject(tag, "IOException occurred.")
     }
   }
 

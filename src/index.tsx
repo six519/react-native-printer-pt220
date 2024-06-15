@@ -19,8 +19,8 @@ const PrinterPt220 = NativeModules.PrinterPt220
 
 export const {PT_ALIGN_CENTER, PT_ALIGN_RIGHT, PT_ALIGN_LEFT} = PrinterPt220.getConstants();
 
-export function ptConnect(address: string): Promise<string> {
-  return PrinterPt220.ptConnect(address);
+export function ptConnect(name: string): Promise<string> {
+  return PrinterPt220.ptConnect(name);
 }
 
 export function ptSetPrinter(command: string): Promise<boolean> {
