@@ -1,15 +1,24 @@
 import * as React from 'react';
 
-import { StyleSheet, View, Button } from 'react-native';
-import { ptConnect, ptSetPrinter, ptPrintText, PT_ALIGN_CENTER } from 'react-native-printer-pt220';
+import { StyleSheet, View, Button, Platform } from 'react-native';
+import { ptConnect, ptSetPrinter, ptPrintText, PT_ALIGN_CENTER, ptInit } from 'react-native-printer-pt220';
 
 export default function App() {
 
   const [result, setResult] = React.useState<string>();
+  const printerName = 'PT-220';
 
   React.useEffect(() => {
-    console.log('Connecting...');
-    ptConnect('PT-220').then(setResult);
+
+    if(Platform.OS === 'ios') {
+      ptInit();
+      setTimeout(() => {
+        ptConnect(printerName).then(setResult);
+      }, 2000);
+    } else {
+      // call connect right away
+      ptConnect(printerName).then(setResult);
+    }
   }, []);
 
   return (

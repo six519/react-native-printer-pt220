@@ -34,3 +34,7 @@ export function ptPrintText(text: string): Promise<boolean> {
 export function ptGetDevices(): Promise<string[]> {
   return PrinterPt220.ptGetDevices();
 }
+
+export function ptInit() {
+  return PrinterPt220.ptInit();
+}

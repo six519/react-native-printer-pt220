@@ -13,6 +13,7 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
         "ALIGN_RIGHT": [27, 97, 2],
         "ALIGN_LEFT": [27, 97, 0]
     ]
+    var btDevices = [String: CBPeripheral]()
     
     let PRINTER_SERVICE = "E7810A71-73AE-499D-8C15-FAA9AEF0C3F2"
     let PRINTER_CHARACTERISTIC = "BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F"
@@ -20,6 +21,7 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
     enum PrinterError: Error {
         case printerSet
         case printerPrintText
+        case printerConnect
     }
     
     //BLEManagerDelegate
@@ -36,10 +38,7 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
     }
     
     func didPeripheralFound(_ peripheral: CBPeripheral, advertisementData: BLEAdvertisementData?, rssi RSSI: NSNumber?) {
-        print("FOUND A PERIPHERAL OK!!!")
-        self.peripheral = peripheral
-        self.peripheral.delegate = self
-        bleManager2.connect(self.peripheral)
+        btDevices[peripheral.name!] = peripheral
     }
     
     func didConnect(_ peripheral: CBPeripheral) {
@@ -60,7 +59,6 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
         guard let services = peripheral.services else {return}
         for service in services {
             peripheral.discoverCharacteristics([CBUUID(string: PRINTER_CHARACTERISTIC)], for: service)
-            print("Service discovered")
             break
         }
     }
@@ -69,18 +67,39 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
         guard let characteristics = service.characteristics else {return}
         for characteristic in characteristics {
             currentCharacteristic = characteristic
-            print("Char discovered")
             break
         }
     }
-
-    @objc(ptConnect:withResolver:withRejecter:)
-    func ptConnect(address: String, resolve:RCTPromiseResolveBlock,reject:RCTPromiseRejectBlock) -> Void {
-        
+    
+    @objc(ptInit)
+    func ptInit() -> Void {
         bleManager = BLEManager.sharedInstance()
         bleManager2 = bleManager as? BLEManager
         bleManager2.delegate = self
-        resolve(address)
+    }
+    
+    @objc(ptGetDevices:rejecter:)
+    func ptGetDevices(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void {
+        var devArray = [String]()
+        
+        for k in btDevices.keys {
+            devArray.append(k)
+        }
+        
+        resolve(devArray)
+    }
+
+    @objc(ptConnect:withResolver:withRejecter:)
+    func ptConnect(name: String, resolve:RCTPromiseResolveBlock,reject:RCTPromiseRejectBlock) -> Void {
+        
+        if btDevices[name] == nil {
+            reject("Connect event", "Invalid name.", PrinterError.printerConnect)
+            return
+        }
+        self.peripheral = btDevices[name]
+        self.peripheral.delegate = self
+        bleManager2.connect(self.peripheral)
+        resolve(name)
     }
     
     @objc(ptSetPrinter:withResolver:withRejecter:)
