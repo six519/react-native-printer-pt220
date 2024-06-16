@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
+import android.graphics.BitmapFactory
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -13,6 +14,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.WritableNativeArray
 import java.io.IOException
 import java.util.UUID
+import java.io.ByteArrayOutputStream
 
 var btAdapter: BluetoothAdapter? = null
 var btDevice: BluetoothDevice? = null
@@ -93,6 +95,39 @@ class PrinterPt220Module(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun ptPrintText(text: String, promise: Promise) {
     printerExecute(text.toByteArray(), "Print text", promise)
+  }
+
+  @ReactMethod
+  fun ptPrintImage(name: String, promise: Promise) {
+    @SuppressLint("DiscouragedApi") val resId: Int =
+      reactApplicationContext.resources.getIdentifier(
+        name,
+        "drawable",
+        reactApplicationContext.packageName
+      )
+
+    val bmp = BitmapFactory.decodeResource(reactApplicationContext.resources, resId)
+
+    val byteArray = byteArrayOf(
+      29,
+      118,
+      48,
+      0,
+      (bmp.width / 8 % 256).toByte(),
+      (bmp.width / 8 / 256).toByte(),
+      (bmp.height % 256).toByte(),
+      (bmp.height / 256).toByte()
+    )
+
+    val src: ByteArray = Util.bitmapToBWPix(bmp)
+
+    val codeContent: ByteArray = Util.pixToEscRastBitImageCmd(src)
+
+    val output = ByteArrayOutputStream()
+    output.write(byteArray)
+    output.write(codeContent)
+
+    printerExecute(output.toByteArray(), "Print image", promise)
   }
 
   override fun getConstants(): MutableMap<String, Any> =
