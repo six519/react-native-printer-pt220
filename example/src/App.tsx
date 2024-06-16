@@ -25,7 +25,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Button title='Print Text' onPress={() => {
+      <Button title='Test Print' onPress={() => {
         ptSetPrinter(PT_ALIGN_CENTER)
         .then(ret => {
           console.log(ret);

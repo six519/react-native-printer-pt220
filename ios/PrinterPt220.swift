@@ -21,6 +21,7 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
     enum PrinterError: Error {
         case printerSet
         case printerPrintText
+        case printerPrintImage
         case printerConnect
     }
     
@@ -122,6 +123,41 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
             resolve(true)
         } else {
             reject("Print text", "Not connected to the device.", PrinterError.printerPrintText)
+        }
+    }
+    
+    @objc(ptPrintImage:withResolver:withRejecter:)
+    func ptPrintImage(name: String, resolve:RCTPromiseResolveBlock,reject:RCTPromiseRejectBlock) -> Void {
+        if peripheral != nil {
+
+            if let img = UIImage(named: name) {
+                let src = Util.bitmapToBWPix(mBitmap: img)
+                let codeContent = Util.pixToEscRastBitImageCmd(src: src!)
+                
+                let cgImage = img.cgImage
+                let value2: [UInt8] = [
+                    29,
+                    118,
+                    48,
+                    0,
+                    UInt8((cgImage!.width * 2) / 8 % 256),
+                    UInt8((cgImage!.width * 2) / 8 / 256),
+                    UInt8((cgImage!.height * 2) % 256),
+                    UInt8((cgImage!.height * 2) / 256)
+                ]
+                
+                var data2 = Data()
+                let d1 = Data(bytes: value2, count: value2.count)
+                data2.append(d1)
+                
+                let d2 = Data(bytes: codeContent, count: codeContent.count)
+                data2.append(d2)
+                peripheral.writeValue(data2, for: currentCharacteristic, type: .withoutResponse)
+            
+            }
+            resolve(true)
+        } else {
+            reject("Print image", "Not connected to the device.", PrinterError.printerPrintText)
         }
     }
     
