@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 import { StyleSheet, View, Button, Platform } from 'react-native';
-import { ptConnect, ptSetPrinter, ptPrintText, PT_ALIGN_CENTER, ptInit } from 'react-native-printer-pt220';
+import { ptConnect, ptSetPrinter, ptPrintText, ptPrintImage, PT_ALIGN_CENTER, ptInit } from 'react-native-printer-pt220';
 
 export default function App() {
 
@@ -13,10 +13,12 @@ export default function App() {
     if(Platform.OS === 'ios') {
       ptInit();
       setTimeout(() => {
+        console.log('Connecting...');
         ptConnect(printerName).then(setResult);
       }, 2000);
     } else {
       // call connect right away
+      console.log('Connecting...');
       ptConnect(printerName).then(setResult);
     }
   }, []);
@@ -33,6 +35,16 @@ export default function App() {
           .then(pret => {
             console.log(pret);
             console.log('Text printed...');
+
+            ptPrintImage('react_native_logo')
+            .then(pret2 => {
+              console.log(pret2);
+              console.log('Image printed...');
+            })
+            .catch(pe2 => {
+              console.log(pe2);
+            });
+
           })
           .catch(pe => {
             console.log(pe);
