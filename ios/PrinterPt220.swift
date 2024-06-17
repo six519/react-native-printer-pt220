@@ -6,8 +6,7 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
     
     var peripheral: CBPeripheral!
     var currentCharacteristic: CBCharacteristic!
-    var bleManager: Any!
-    var bleManager2: BLEManager!
+    var bleManager: BLEManager!
     var printerCommands: [String: [UInt8]] = [
         "ALIGN_CENTER": [27, 97, 1],
         "ALIGN_RIGHT": [27, 97, 2],
@@ -30,7 +29,7 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
         switch(state) {
         case .poweredOn:
             print("powered on")
-            bleManager2.scan(forPeripherals: PRINTER_SERVICE)
+            bleManager.scan(forPeripherals: PRINTER_SERVICE)
         case .poweredOff:
             print("powered off")
         default:
@@ -74,9 +73,8 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
     
     @objc(ptInit)
     func ptInit() -> Void {
-        bleManager = BLEManager.sharedInstance()
-        bleManager2 = bleManager as? BLEManager
-        bleManager2.delegate = self
+        bleManager = BLEManager.sharedInstance() as? BLEManager
+        bleManager.delegate = self
     }
     
     @objc(ptGetDevices:rejecter:)
@@ -97,68 +95,61 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
             reject("Connect event", "Invalid name.", PrinterError.printerConnect)
             return
         }
+        bleManager.stopScan()
         self.peripheral = btDevices[name]
         self.peripheral.delegate = self
-        bleManager2.connect(self.peripheral)
+        bleManager.connect(self.peripheral)
         resolve(name)
+    }
+    
+    func printerExecute(data: Data, label: String, err: PrinterError, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
+        
+        if peripheral != nil {
+            peripheral.writeValue(data, for: currentCharacteristic, type: .withoutResponse)
+            resolve(true)
+        } else {
+            reject(label, "Not connected to the device.", err)
+        }
     }
     
     @objc(ptSetPrinter:withResolver:withRejecter:)
     func ptSetPrinter(cmd: String, resolve:RCTPromiseResolveBlock,reject:RCTPromiseRejectBlock) -> Void {
-        
-        if peripheral != nil {
-            let data = Data(bytes: printerCommands[cmd]!, count: printerCommands[cmd]!.count)
-            peripheral.writeValue(data, for: currentCharacteristic, type: .withoutResponse)
-            resolve(true)
-        } else {
-            reject("Set printer", "Not connected to the device.", PrinterError.printerSet)
-        }
+        printerExecute(data: Data(bytes: printerCommands[cmd]!, count: printerCommands[cmd]!.count), label: "Set printer", err: PrinterError.printerSet, resolve: resolve, reject: reject)
     }
     
     @objc(ptPrintText:withResolver:withRejecter:)
     func ptPrintText(text: String, resolve:RCTPromiseResolveBlock,reject:RCTPromiseRejectBlock) -> Void {
-        if peripheral != nil {
-            let data = Data(text.utf8)
-            peripheral.writeValue(data, for: currentCharacteristic, type: .withoutResponse)
-            resolve(true)
-        } else {
-            reject("Print text", "Not connected to the device.", PrinterError.printerPrintText)
-        }
+        printerExecute(data: Data(text.utf8), label: "Print text", err: PrinterError.printerPrintText, resolve: resolve, reject: reject)
     }
     
     @objc(ptPrintImage:withResolver:withRejecter:)
     func ptPrintImage(name: String, resolve:RCTPromiseResolveBlock,reject:RCTPromiseRejectBlock) -> Void {
-        if peripheral != nil {
-
-            if let img = UIImage(named: name) {
-                let src = Util.bitmapToBWPix(mBitmap: img)
-                let codeContent = Util.pixToEscRastBitImageCmd(src: src!)
-                
-                let cgImage = img.cgImage
-                let value2: [UInt8] = [
-                    29,
-                    118,
-                    48,
-                    0,
-                    UInt8((cgImage!.width * 2) / 8 % 256),
-                    UInt8((cgImage!.width * 2) / 8 / 256),
-                    UInt8((cgImage!.height * 2) % 256),
-                    UInt8((cgImage!.height * 2) / 256)
-                ]
-                
-                var data2 = Data()
-                let d1 = Data(bytes: value2, count: value2.count)
-                data2.append(d1)
-                
-                let d2 = Data(bytes: codeContent, count: codeContent.count)
-                data2.append(d2)
-                peripheral.writeValue(data2, for: currentCharacteristic, type: .withoutResponse)
+        
+        if let img = UIImage(named: name) {
+            let codeContent = Util.pixToEscRastBitImageCmd(
+                src: Util.bitmapToBWPix(mBitmap: img)!
+            )
             
-            }
-            resolve(true)
-        } else {
-            reject("Print image", "Not connected to the device.", PrinterError.printerPrintText)
+            let cgImage = img.cgImage
+            let value: [UInt8] = [
+                29,
+                118,
+                48,
+                0,
+                UInt8((cgImage!.width * 2) / 8 % 256),
+                UInt8((cgImage!.width * 2) / 8 / 256),
+                UInt8((cgImage!.height * 2) % 256),
+                UInt8((cgImage!.height * 2) / 256)
+            ]
+            
+            var data = Data()
+            data.append(Data(bytes: value, count: value.count))
+            data.append(Data(bytes: codeContent, count: codeContent.count))
+
+            printerExecute(data: data, label: "Print image", err: PrinterError.printerPrintImage, resolve: resolve, reject: reject)
+            return;
         }
+        reject("Print image", "Invalid image.", PrinterError.printerPrintImage)
     }
     
     @objc(constantsToExport)
