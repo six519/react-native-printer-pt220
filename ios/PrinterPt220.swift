@@ -1,5 +1,6 @@
 import UIKit
 import CoreBluetooth
+import CoreImage
 
 @objc(PrinterPt220)
 class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
@@ -21,6 +22,7 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
         case printerSet
         case printerPrintText
         case printerPrintImage
+        case printerPrintQRCode
         case printerConnect
     }
     
@@ -122,34 +124,72 @@ class PrinterPt220: NSObject, BLEManagerDelegate, CBPeripheralDelegate {
         printerExecute(data: Data(text.utf8), label: "Print text", err: PrinterError.printerPrintText, resolve: resolve, reject: reject)
     }
     
+    func generateImageCommand(img: UIImage) -> Data {
+        let codeContent = Util.pixToEscRastBitImageCmd(
+            src: Util.bitmapToBWPix(mBitmap: img)!
+        )
+        
+        let cgImage = img.cgImage
+        let value: [UInt8] = [
+            29,
+            118,
+            48,
+            0,
+            UInt8((cgImage!.width * 2) / 8 % 256),
+            UInt8((cgImage!.width * 2) / 8 / 256),
+            UInt8((cgImage!.height * 2) % 256),
+            UInt8((cgImage!.height * 2) / 256)
+        ]
+        
+        var data = Data()
+        data.append(Data(bytes: value, count: value.count))
+        data.append(Data(bytes: codeContent, count: codeContent.count))
+        
+        return data
+    }
+    
     @objc(ptPrintImage:withResolver:withRejecter:)
     func ptPrintImage(name: String, resolve:RCTPromiseResolveBlock,reject:RCTPromiseRejectBlock) -> Void {
+        let data = generateImageCommand(img: UIImage(named: name)!)
+        printerExecute(data: data, label: "Print image", err: PrinterError.printerPrintImage, resolve: resolve, reject: reject)
+    }
+    
+    @objc(ptPrintQRCode:size:withResolver:withRejecter:)
+    func ptPrintQRCode(text: String, size: NSNumber, resolve:RCTPromiseResolveBlock,reject:RCTPromiseRejectBlock) -> Void {
         
-        if let img = UIImage(named: name) {
-            let codeContent = Util.pixToEscRastBitImageCmd(
-                src: Util.bitmapToBWPix(mBitmap: img)!
-            )
-            
-            let cgImage = img.cgImage
-            let value: [UInt8] = [
-                29,
-                118,
-                48,
-                0,
-                UInt8((cgImage!.width * 2) / 8 % 256),
-                UInt8((cgImage!.width * 2) / 8 / 256),
-                UInt8((cgImage!.height * 2) % 256),
-                UInt8((cgImage!.height * 2) / 256)
-            ]
-            
-            var data = Data()
-            data.append(Data(bytes: value, count: value.count))
-            data.append(Data(bytes: codeContent, count: codeContent.count))
-
-            printerExecute(data: data, label: "Print image", err: PrinterError.printerPrintImage, resolve: resolve, reject: reject)
-            return;
+        var thisSize = size.intValue
+        
+        if thisSize > 200 {
+            reject("Print QR code", "Invalid size.", PrinterError.printerPrintQRCode)
+            return
         }
-        reject("Print image", "Invalid image.", PrinterError.printerPrintImage)
+        
+        thisSize = thisSize / 2
+        
+        let data = text.data(using: String.Encoding.ascii)
+        let cgsize = CGSize(width: thisSize, height: thisSize)
+
+        if let filter = CIFilter(name: "CIQRCodeGenerator") {
+            filter.setValue(data, forKey: "inputMessage")
+            filter.setValue("L", forKey: "inputCorrectionLevel")
+
+            guard let qrCodeImage = filter.outputImage else {
+                return
+            }
+
+            let transform = CGAffineTransform(scaleX: cgsize.width / qrCodeImage.extent.size.width, y: cgsize.height / qrCodeImage.extent.size.height)
+            let scaledQRCodeImage = qrCodeImage.transformed(by: transform)
+
+            let context:CIContext = CIContext.init(options: nil)
+            let cgImage:CGImage = context.createCGImage(scaledQRCodeImage, from: scaledQRCodeImage.extent)!
+
+            //let imageData = generateImageCommand(img: UIImage(ciImage: scaledQRCodeImage))
+            let imageData = generateImageCommand(img: UIImage.init(cgImage: cgImage))
+            printerExecute(data: imageData, label: "Print QR code", err: PrinterError.printerPrintQRCode, resolve: resolve, reject: reject)
+            return
+        }
+        
+        reject("Print QR code", "Unable to create image.", PrinterError.printerPrintQRCode)
     }
     
     @objc(constantsToExport)
