@@ -35,6 +35,10 @@ export function ptPrintImage(name: string): Promise<boolean> {
   return PrinterPt220.ptPrintImage(name);
 }
 
+export function ptPrintQRCode(text: string, size: number): Promise<boolean> {
+  return PrinterPt220.ptPrintQRCode(text, size);
+}
+
 export function ptGetDevices(): Promise<string[]> {
   return PrinterPt220.ptGetDevices();
 }
