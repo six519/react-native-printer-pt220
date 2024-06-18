@@ -1,6 +1,6 @@
 {
   "name": "react-native-printer-pt220",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "React Native Module For PT-220 Thermal Printer",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
