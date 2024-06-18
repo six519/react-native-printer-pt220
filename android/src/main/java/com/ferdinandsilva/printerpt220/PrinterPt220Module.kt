@@ -6,15 +6,22 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.WritableNativeArray
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import com.journeyapps.barcodescanner.BarcodeEncoder
 import java.io.IOException
 import java.util.UUID
 import java.io.ByteArrayOutputStream
+import kotlin.Exception
 
 var btAdapter: BluetoothAdapter? = null
 var btDevice: BluetoothDevice? = null
@@ -87,27 +94,7 @@ class PrinterPt220Module(reactContext: ReactApplicationContext) :
     }
   }
 
-  @ReactMethod
-  fun ptSetPrinter(command: String, promise: Promise) {
-    printerExecute(printerCommands[command], "Set printer", promise)
-  }
-
-  @ReactMethod
-  fun ptPrintText(text: String, promise: Promise) {
-    printerExecute(text.toByteArray(), "Print text", promise)
-  }
-
-  @ReactMethod
-  fun ptPrintImage(name: String, promise: Promise) {
-    @SuppressLint("DiscouragedApi") val resId: Int =
-      reactApplicationContext.resources.getIdentifier(
-        name,
-        "drawable",
-        reactApplicationContext.packageName
-      )
-
-    val bmp = BitmapFactory.decodeResource(reactApplicationContext.resources, resId)
-
+  private fun generateImageCommand(bmp: Bitmap) : ByteArray {
     val byteArray = byteArrayOf(
       29,
       118,
@@ -127,7 +114,54 @@ class PrinterPt220Module(reactContext: ReactApplicationContext) :
     output.write(byteArray)
     output.write(codeContent)
 
-    printerExecute(output.toByteArray(), "Print image", promise)
+    return output.toByteArray()
+  }
+
+  @ReactMethod
+  fun ptSetPrinter(command: String, promise: Promise) {
+    printerExecute(printerCommands[command], "Set printer", promise)
+  }
+
+  @ReactMethod
+  fun ptPrintText(text: String, promise: Promise) {
+    printerExecute(text.toByteArray(), "Print text", promise)
+  }
+
+  @ReactMethod
+  fun ptPrintQRCode(text: String, size: Int, promise: Promise) {
+    try {
+      if (size > 200) {
+        throw Exception("Invalid size.")
+      }
+
+      val hintMap = mapOf(
+        EncodeHintType.CHARACTER_SET to "UTF-8",
+        EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.L,
+        EncodeHintType.QR_VERSION to 2 // Same as CoreImage version
+      )
+
+      val qrCodeWriter = QRCodeWriter()
+      val bitMatrix = qrCodeWriter.encode(text, BarcodeFormat.QR_CODE, size, size, hintMap)
+
+      val barcodeEncoder = BarcodeEncoder()
+      val bmp = barcodeEncoder.createBitmap(bitMatrix)
+      printerExecute(generateImageCommand(bmp), "Print QR code", promise)
+    } catch (e: Exception) {
+      promise.reject("Print QR code", "Exception occurred.")
+    }
+  }
+
+  @ReactMethod
+  fun ptPrintImage(name: String, promise: Promise) {
+    @SuppressLint("DiscouragedApi") val resId: Int =
+      reactApplicationContext.resources.getIdentifier(
+        name,
+        "drawable",
+        reactApplicationContext.packageName
+      )
+
+    val bmp = BitmapFactory.decodeResource(reactApplicationContext.resources, resId)
+    printerExecute(generateImageCommand(bmp), "Print image", promise)
   }
 
   override fun getConstants(): MutableMap<String, Any> =
