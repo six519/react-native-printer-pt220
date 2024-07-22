@@ -21,6 +21,12 @@ Open your project's `Info.plist` and add the following lines inside the outermos
 <string>Need Bluetooth</string>
 ```
 
+Install iOS dependency:
+
+```bash
+cd ios && pod install
+```
+
 ### Setup For Printing Images
 
 You can import images using asset catalog in Xcode.
